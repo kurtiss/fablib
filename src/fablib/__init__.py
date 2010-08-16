@@ -147,7 +147,7 @@ class BaseHelper(object):
 
     def clone(self):
         # clone the ref to our new release path
-        run("""
+        self.run("""
             git clone {repository_path} {release_path};
             cd {release_path};
             git checkout {deploy_ref}
