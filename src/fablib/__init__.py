@@ -240,6 +240,7 @@ class PythonProjectHelper(BaseHelper):
         self.init_virtualenvwrapper()
 
     def clone(self):
+        super(PythonProjectHelper, self).clone()
         env.requirements_path = _("{release_path}/etc/pip/requirements.txt")            
 
         self.init_virtualenvwrapper("""
@@ -247,7 +248,7 @@ class PythonProjectHelper(BaseHelper):
             workon {release_id};
             easy_install pip;
             {pip} install -r {requirements_path};
-            add2virtualenv src
+            add2virtualenv {release_path}/src
         """)
 
     def init_virtualenvwrapper(self, code = ""):
