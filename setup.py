@@ -10,7 +10,12 @@ Copyright (c) 2010 Medium Entertainment, Inc. All rights reserved.
 from setuptools import setup, find_packages
 import os
 
-os.chdir("src")
+srcpath = "src"
+srcroot = os.path.join(os.path.dirname(__file__), srcpath)
+packages = os.listdir(srcroot)
+
+for package in packages:
+    os.symlink(os.path.join(srcroot, package), package)
 
 execfile(os.path.join('fablib', 'version.py'))
 
@@ -28,5 +33,9 @@ setup(
         'Operating System :: OS Independent',
         'Programming Language :: Python',
         'Topic :: Software Development :: Libraries :: Python Modules'
-    ]
+    ],
+    zip_safe = False
 )
+
+for package in packages:
+    os.remove(package)
