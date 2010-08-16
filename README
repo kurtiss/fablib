@@ -1,0 +1,26 @@
+To begin developing, make sure you have:
+git
+virtualenv
+virtualenvwrapper
+curl
+
+Mac OS X Instructions for curl:
+sudo port install zlib +universal
+sudo port upgrade --enforce-variants openssl +universal
+sudo port install curl +universal
+
+export WORKON_HOME=fablib/..
+source virtualenvwrapper.sh
+
+cd fablib/..
+mkvirtualenv --no-site-packages fablib
+add2virtualenv $VIRTUAL_ENV/src
+
+
+To switch to this project:
+export WORKON_HOME=fablib/..
+source virtualenvwrapper.sh
+workon fablib
+
+To switch out of this project:
+deactivate
