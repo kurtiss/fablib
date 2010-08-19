@@ -7,13 +7,14 @@ Created by Kurtiss Hare on 2010-08-15.
 Copyright (c) 2010 Medium Entertainment, Inc. All rights reserved.
 """
 
+from __future__ import with_statement
 from fabric.api import abort, cd, env, sudo, put, run
 import collections, os, time
 
 
 def _(s, **kwargs):
     if kwargs:
-        params = dict((k,v) for (k,v) in env.items() + kwargs.items())    
+        params = dict((k,v) for (k,v) in env.items() + kwargs.items())
     else:
         params = env
 
@@ -28,7 +29,7 @@ class BaseHelper(object):
         self.packages = set(["git-core"])
         if packages:
             self.packages.update(set(packages))
-            
+
         self.hosts = hosts or []
 
     def base(self):
@@ -50,18 +51,18 @@ class BaseHelper(object):
         self.base()
         env.user = "ubuntu"
         env.key_filename = [self.localpath("{application}/ec2/{application}-keypair.pem")]
-        
+
     def stage(self):
         self.base()
         env.user = _("{application}-bot")
         env.key_filename = [self.rootpath("home/{user}/.ssh/id_rsa")]
-        
+
     def configure(self):
         sudo(
             """
             DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical
             aptitude dist-upgrade -y &&
-            apt-get update && 
+            apt-get update &&
             apt-get upgrade -y
             """,
             pty = True
@@ -87,15 +88,7 @@ class BaseHelper(object):
             abort("sudoers file ({0}) did not pass validation".format(self.rootpath("etc/sudoers")))
 
         sudo("mv -f /tmp/fabupload /etc/sudoers")
-        
-    def install_packages(self):
-        if self.packages:
-            package_list = " ".join(self.packages)
 
-            self.sudo(_("""
-                apt-get install -y
-            """))
-            
     def run(self, s, **kwargs):
         return run(_(s, **kwargs))
 
@@ -106,28 +99,28 @@ class BaseHelper(object):
         self.sudo("apt-get install -y {packages}",
             packages = " ".join(self.packages)
         )
-        
+
     def setup(self):
         self.install_packages()
         self.sudo("rm -rf {repository_path}")
 
         self.mkdirs(
-            _("{path}"), 
-            _("{shared_path}"), 
-            _("{releases_path}"), 
+            _("{path}"),
+            _("{shared_path}"),
+            _("{releases_path}"),
             _("{repository_path}")
         )
-        
+
         self.run("git clone {origin_uri} {repository_path}")
         self.update()
-        
+
     def update(self):
         self.run("""
             cd {repository_path};
             git pull origin master;
             git submodule update --init;
         """)
-        
+
     def deploy(self, deploy_ref = "HEAD"):
         env.deploy_ref = deploy_ref
         env.release_id = time.strftime("%Y%m%d%H%M%S")
@@ -152,7 +145,7 @@ class BaseHelper(object):
             cd {release_path};
             git checkout {deploy_ref}
         """)
-        
+
 
     def mkdirs(self, *paths):
         for path in paths:
@@ -178,7 +171,7 @@ class BaseHelper(object):
             self.sudo("""
                 mkdir -p /{ssh_dir};
                 chown {user}:{user} /{ssh_dir}
-                """, 
+                """,
                 ssh_dir = ssh_dir,
                 user = user
             )
@@ -209,7 +202,7 @@ class BaseHelper(object):
 
     def localpath(self, path = ""):
         return os.path.join(os.path.dirname(os.path.dirname(self.file)), _(path))
-    
+
     def rootpath(self, path = ""):
         return self.localpath(os.path.join(_("{application}/root"), _(path)))
 
@@ -223,25 +216,25 @@ class PythonProjectHelper(BaseHelper):
         kwargs['packages'] = packages
 
         super(PythonProjectHelper, self).__init__(*args, **kwargs)
-    
+
     def base(self):
         super(PythonProjectHelper, self).base()
         env.pip = self.pip_cmd
-    
+
     def pip(self, s, **kwargs):
         self.sudo("{{pip}} {0}".format(s), **kwargs)
 
     def install_packages(self):
         super(PythonProjectHelper, self).install_packages()
         self.pip("install virtualenvwrapper")
-    
+
     def setup(self):
         super(PythonProjectHelper, self).setup()
         self.init_virtualenvwrapper()
 
     def clone(self):
         super(PythonProjectHelper, self).clone()
-        env.requirements_path = _("{release_path}/etc/pip/requirements.txt")            
+        env.requirements_path = _("{release_path}/etc/pip/requirements.txt")
 
         self.init_virtualenvwrapper("""
             mkvirtualenv --no-site-packages {release_id};
