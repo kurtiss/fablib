@@ -7,4 +7,4 @@ Created by Kurtiss Hare on 2010-08-15.
 Copyright (c) 2010 Medium Entertainment, Inc. All rights reserved.
 """
 
-VERSION = "0.1.0"
+VERSION = "0.2.0"

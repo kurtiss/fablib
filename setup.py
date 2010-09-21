@@ -10,13 +10,7 @@ Copyright (c) 2010 Medium Entertainment, Inc. All rights reserved.
 from setuptools import setup, find_packages
 import os
 
-srcpath = "src"
-srcroot = os.path.join(os.path.dirname(__file__), srcpath)
-packages = os.listdir(srcroot)
-
-for package in packages:
-    os.symlink(os.path.join(srcroot, package), package)
-
+os.chdir('src')
 execfile(os.path.join('fablib', 'version.py'))
 
 setup(
@@ -34,8 +28,6 @@ setup(
         'Programming Language :: Python',
         'Topic :: Software Development :: Libraries :: Python Modules'
     ],
+    install_requires = ['jinja2'],
     zip_safe = False
 )
-
-for package in packages:
-    os.remove(package)
