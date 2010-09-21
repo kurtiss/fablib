@@ -7,6 +7,8 @@ Created by Kurtiss Hare on 2010-08-15.
 Copyright (c) 2010 Medium Entertainment, Inc. All rights reserved.
 """
 
+from __future__ import with_statement
+
 import collections
 import functools
 import os
@@ -97,12 +99,22 @@ class ProjectHelper(object):
             ('release_path',    "{releases_path}/{release_id}")
         )
 
+    def fresh(self):
+        self.base()
+        env.user = "ubuntu"
+        env.key_filename = [self.localpath("{application}/ec2/{application}-keypair.pem")]
+
+    def stage(self):
+        self.base()
+        env.user = _("{application}-bot")
+        env.key_filename = [self.rootpath("home/{user}/.ssh/id_rsa")]
+
     def configure(self):
         sudo(
             """
             DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical
             aptitude dist-upgrade -y &&
-            apt-get update && 
+            apt-get update &&
             apt-get upgrade -y
             """,
             pty = True
@@ -162,10 +174,6 @@ class ProjectHelper(object):
         if self.packages:
             package_list = " ".join(self.packages)
 
-            self.sudo(_("""
-                apt-get install -y
-            """))
-            
     def run(self, s, **kwargs):
         return run(_(s, **kwargs))
 
@@ -176,7 +184,7 @@ class ProjectHelper(object):
         self.sudo("apt-get install -y {packages}",
             packages = " ".join(self.packages)
         )
-        
+
     def update(self):
         self.run("""
             cd {repository_path};
@@ -219,7 +227,7 @@ class ProjectHelper(object):
             self.sudo("""
                 mkdir -p /{ssh_dir};
                 chown {user}:{user} /{ssh_dir}
-                """, 
+                """,
                 ssh_dir = ssh_dir,
                 user = user
             )
@@ -243,8 +251,8 @@ class ProjectHelper(object):
     def upload(self, local, remote, user, mode = 600):
         put(local, "/tmp/fabupload")
         self.sudo("""
-            mv /tmp/fabupload {remote}
-            chown {user}:{user} {remote}
+            mv -f /tmp/fabupload {remote};
+            chown {user}:{user} {remote};
             chmod {mode} {remote}
         """,
             user = user,
@@ -257,9 +265,10 @@ class ProjectHelper(object):
         je = Environment(loader = FileSystemLoader(os.path.dirname(local)))
         template = je.get_template(os.path.basename(local))
         result = template.render(context or dict())
-        
+
         with tempfile.NamedTemporaryFile() as f:
             f.write(result)
+            f.seek(0)
             self.upload(f.name, remote, user, mode)
 
     def project_path(self, *paths):
@@ -303,7 +312,7 @@ class PythonProjectHelper(ProjectHelper):
     def install_packages(self):
         super(PythonProjectHelper, self).install_packages()
         self.pip("install virtualenvwrapper")
-    
+
     def setup(self):
         super(PythonProjectHelper, self).setup()
         with self.virtualenvwrapper():
