@@ -281,7 +281,7 @@ class ProjectHelper(object):
             for info in layout:
                 self.upload(info.local, info.remote, user, info.mode)
 
-    def upload(self, local, remote, user, mode = 600):
+    def upload(self, local, remote, user, mode = 640):
         put(local, "/tmp/fabupload")
         self.sudo("""
             mv -f /tmp/fabupload {remote};
@@ -293,7 +293,7 @@ class ProjectHelper(object):
             remote = self._(remote)
         )
         
-    def upload_rendered(self, local, remote, user, context = None, mode = 600):
+    def upload_rendered(self, local, remote, user, context = None, mode = 640):
         from jinja2 import Environment, FileSystemLoader
         je = Environment(loader = FileSystemLoader(self._(os.path.dirname(local))))
         template = je.get_template(self._(os.path.basename(local)))
