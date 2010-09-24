@@ -10,8 +10,7 @@ Copyright (c) 2010 Medium Entertainment, Inc. All rights reserved.
 from setuptools import setup, find_packages
 import os
 
-os.chdir('src')
-execfile(os.path.join('fablib', 'version.py'))
+execfile(os.path.join('src', 'fablib', 'version.py'))
 
 setup(
     name = 'fablib',
@@ -20,7 +19,8 @@ setup(
     author = 'Kurtiss Hare',
     author_email = 'kurtiss@gmail.com',
     url = 'http://www.github.com/kurtiss/fablib',
-    packages = find_packages(),
+    packages = find_packages('src'),
+    package_dir = {'' : 'src'},
     scripts = [],
     classifiers = [
         'Intended Audience :: Developers',
