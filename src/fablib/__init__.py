@@ -18,26 +18,9 @@ import time
 from contextlib import contextmanager
 from functools import partial, reduce
 from fabric.api import abort, cd, env, sudo, put, run
+from fabric.state import _AttributeDict
 
-
-def _(s, **kwargs):
-    if hasattr(s, 'format') and hasattr(s.format, '__call__'):
-        if kwargs:
-            params = dict((k,v) for (k,v) in env.items() + kwargs.items())    
-        else:
-            params = env
-        return s.format(**params)
-
-    return s
-
-def update_env(env, *items, **kwargs):
-    unconditional = not kwargs.pop('conditional', True)
-    for (key, value) in items:
-        if getattr(env, key, None) is None or unconditional:
-            if hasattr(value, '__call__'):
-                value = value()
-            setattr(env, key, _(value))
-            
+        
 def install(helper, scope, prefix = None):
     names = (n for n in dir(helper) if not n.startswith('_'))
 
@@ -47,7 +30,7 @@ def install(helper, scope, prefix = None):
         prefix = "{0}_".format(prefix)
 
     for name in names:
-        scope["{0}{1}".format(prefix, name)] = getattr(helper, name)      
+        scope["{0}{1}".format(prefix, name)] = getattr(helper, name)
 
 
 class ProjectHelper(object):
@@ -55,14 +38,58 @@ class ProjectHelper(object):
         self.github_path = github_path
         self._project_path = project_path
         self.packages = set(["git-core"])
+        self._context = env
 
         if packages:
             self.packages.update(set(packages))
+            
+    @property
+    def context(self):
+        return self._context
+
+    def _(self, s, **kwargs):
+        if hasattr(s, 'format') and hasattr(s.format, '__call__'):
+            if kwargs:
+                params = dict((k,v) for (k,v) in self.context.items() + kwargs.items())    
+            else:
+                params = self.context
+
+            return s.format(**params)
+
+        return s
+    
+    def new(self, *items, **kwargs):
+        kwargs.setdefault('base', _AttributeDict())
+        return self._extend(items, kwargs)
+    
+    def extend(self, *items, **kwargs):
+        kwargs['base'] = self.context
+        self._context = self._extend(items, kwargs)
+        
+    def __setattribute__(self, name):
+        if name == "context":
+            raise 
+
+    def _extend(self, items, kwargs):
+        try:
+            base = kwargs['base']
+        except KeyError:
+            raise RuntimeError("'base' cannot be None.")
+
+        for item_data in items:
+            key, value, overwrite = (item_data + (False,))[:3]
+
+            if getattr(base, key, None) is None or overwrite:
+                if hasattr(value, '__call__'):
+                    value = value()
+                setattr(base, key, self._(value))
+
+        return base
 
     def include_base_environment(self):
         github_account, application = self.github_path.split("/")
         
-        update_env(env,
+        self.extend(
             ('github_account',      github_account),
             ('application',         application),
             ('disable_known_hosts', True),
@@ -80,7 +107,7 @@ class ProjectHelper(object):
     def include_configure_environment(self):
         self.include_base_environment()
 
-        update_env(env,
+        self.extend(
             ('_user',           env.user),
             ('user',            "ubuntu"),
             ('key_filename',    self.etc_path("{application}/ec2/{application}-keypair.pem"))
@@ -88,26 +115,15 @@ class ProjectHelper(object):
     
     def include_prepare_environment(self):
         self.include_base_environment()
-        # NOTE: no further customization at this time
         
     def include_deploy_environment(self, deploy_ref = "HEAD"):
         self.include_base_environment()
 
-        update_env(env,
+        self.extend(
             ('deploy_ref',      deploy_ref),
             ('release_id',      time.strftime("%Y%m%d%H%M%S")),
             ('release_path',    "{releases_path}/{release_id}")
         )
-
-    def fresh(self):
-        self.base()
-        env.user = "ubuntu"
-        env.key_filename = [self.localpath("{application}/ec2/{application}-keypair.pem")]
-
-    def stage(self):
-        self.base()
-        env.user = _("{application}-bot")
-        env.key_filename = [self.rootpath("home/{user}/.ssh/id_rsa")]
 
     def configure(self):
         sudo(
@@ -120,7 +136,7 @@ class ProjectHelper(object):
             pty = True
         )
 
-        self.addusers(env.user)
+        self.addusers(self.context.user)
 
         put(
             self.root_path("etc/sudoers"),
@@ -146,39 +162,56 @@ class ProjectHelper(object):
         self.sudo("rm -rf {repository_path}")
 
         self.mkdirs(
-            _("{path}"), 
-            _("{shared_path}"), 
-            _("{releases_path}"), 
+            "{path}", 
+            "{shared_path}", 
+            "{releases_path}", 
         )
 
         self.run("git clone {origin_uri} {repository_path}")
         self.update()
-        
+    
     def deploy(self):
+        self.include_deploy_environment()
+
+        self.deploy_update()
+        self.deploy_alter()
+        self.deploy_symlink()
+        self.deploy_restart()
+        self.deploy_cleanup()
+
+    def deploy_update(self):
         self.update()
         self.clone()
 
+    def deploy_alter(self):
+        pass
+    
+    def deploy_symlink(self):
         # symlink the new release
         self.run("""
             rm -f {current_path};
             ln -s {release_path} {current_path}
         """)
-
-        # cleanup old releases
-        with cd("{releases_path}".format(**env)):
-            r = reversed(sudo("ls -dt */").splitlines())
-            for dir in [d.strip('/') for d in r][:-env.keep_releases]:
-                sudo("rm -rf {0}".format(dir))         
         
+    def deploy_restart(self):
+        pass
+
+    def deploy_cleanup(self):
+        # cleanup old releases
+        with cd("{releases_path}".format(**self.context)):
+            r = reversed(sudo("ls -dt */").splitlines())
+            for dir in [d.strip('/') for d in r][:-self.context.keep_releases]:
+                sudo("rm -rf {0}".format(dir))        
+    
     def install_packages(self):
         if self.packages:
             package_list = " ".join(self.packages)
 
     def run(self, s, **kwargs):
-        return run(_(s, **kwargs))
+        return run(self._(s, **kwargs))
 
     def sudo(self, s, **kwargs):
-        return sudo(_(s, **kwargs), pty = True)
+        return sudo(self._(s, **kwargs), pty = True)
 
     def install_packages(self):
         self.sudo("apt-get install -y {packages}",
@@ -209,12 +242,12 @@ class ProjectHelper(object):
                 mkdir -p {path};
                 chown {user}:{user} {path}
                 """,
-                path = path
+                path = self._(path)
             )
 
     def addusers(self, *users):
         for user in users:
-            home_dir = _("home/{user}", user = user)
+            home_dir = self._("home/{user}", user = user)
             ssh_dir = home_dir + "/.ssh"
 
             self.sudo("""
@@ -232,16 +265,16 @@ class ProjectHelper(object):
                 user = user
             )
 
-            private_key_file = _("{ssh_dir}/id_rsa", ssh_dir = ssh_dir)
-            public_key_file = _("{ssh_dir}/id_rsa.pub", ssh_dir = ssh_dir)
-            ssh_config_file = _("{ssh_dir}/config", ssh_dir = ssh_dir)
+            private_key_file = self._("{ssh_dir}/id_rsa", ssh_dir = ssh_dir)
+            public_key_file = self._("{ssh_dir}/id_rsa.pub", ssh_dir = ssh_dir)
+            ssh_config_file = self._("{ssh_dir}/config", ssh_dir = ssh_dir)
 
             FileInfo = collections.namedtuple('FileInfo', 'local remote mode')
 
             layout = [
                 FileInfo(self.root_path(private_key_file), "/" + private_key_file, 600),
                 FileInfo(self.root_path(public_key_file), "/" + public_key_file, 640),
-                FileInfo(self.root_path(public_key_file), _("/{ssh_dir}/authorized_keys", ssh_dir = ssh_dir), 640),
+                FileInfo(self.root_path(public_key_file), self._("/{ssh_dir}/authorized_keys", ssh_dir = ssh_dir), 640),
                 FileInfo(self.root_path(ssh_config_file), "/" + ssh_config_file, 644)
             ]
 
@@ -257,13 +290,13 @@ class ProjectHelper(object):
         """,
             user = user,
             mode = mode,
-            remote = _(remote)
+            remote = self._(remote)
         )
         
-    def render(self, local, remote, user, context = None, mode = 600):
+    def upload_rendered(self, local, remote, user, context = None, mode = 600):
         from jinja2 import Environment, FileSystemLoader
-        je = Environment(loader = FileSystemLoader(os.path.dirname(local)))
-        template = je.get_template(os.path.basename(local))
+        je = Environment(loader = FileSystemLoader(self._(os.path.dirname(local))))
+        template = je.get_template(self._(os.path.basename(local)))
         result = template.render(context or dict())
 
         with tempfile.NamedTemporaryFile() as f:
@@ -271,8 +304,19 @@ class ProjectHelper(object):
             f.seek(0)
             self.upload(f.name, remote, user, mode)
 
+    def put(self, local, context = None, **kwargs):
+        context = context or dict()
+        updated_context = self.new(*(context.items() + kwargs.items()))
+
+        self.upload_rendered(
+            self.project_path(local),
+            os.path.join("{release_path}", local),
+            self.context.user,
+            updated_context
+        )
+
     def project_path(self, *paths):
-        return _(os.path.join(self._project_path, *paths))
+        return self._(os.path.join(self._project_path, *paths))
     
     def etc_path(self, *paths):
         return self.project_path("etc", *paths)
@@ -296,13 +340,14 @@ class PythonProjectHelper(ProjectHelper):
     
     def include_base_environment(self):
         super(PythonProjectHelper, self).include_base_environment()
-        update_env(env,
+
+        self.extend(
             ('pip',     self.pip_cmd)
         )
     
     def include_deploy_environment(self):
         super(PythonProjectHelper, self).include_deploy_environment()
-        update_env(env,
+        self.extend(
             ('requirements_path', "{release_path}/etc/pip/requirements.txt")
         )
     
