@@ -95,8 +95,10 @@ class ProjectHelper(object):
             ('disable_known_hosts', True),
             ('keep_releases',       4),
             ('user',                "{application}-bot"),
+            ('group',               "{user}"),
             ('key_filename',        partial(self.root_path, "home/{user}/.ssh/id_rsa")),
-            ('path',                "/var/www/{application}"),
+            ('path_prefix',         "/var/www"),
+            ('path',                "{path_prefix}/{application}"),
             ('origin_uri',          "git@github.com:{github_account}/{application}.git"),
             ('shared_path',         "{path}/shared"),
             ('releases_path',       "{path}/releases"),
@@ -240,7 +242,7 @@ class ProjectHelper(object):
         for path in paths:
             self.sudo("""
                 mkdir -p {path};
-                chown {user}:{user} {path}
+                chown {user}:{group} {path}
                 """,
                 path = self._(path)
             )
@@ -259,7 +261,7 @@ class ProjectHelper(object):
 
             self.sudo("""
                 mkdir -p /{ssh_dir};
-                chown {user}:{user} /{ssh_dir}
+                chown {user}:{group} /{ssh_dir}
                 """,
                 ssh_dir = ssh_dir,
                 user = user
@@ -285,7 +287,7 @@ class ProjectHelper(object):
         put(local, "/tmp/fabupload")
         self.sudo("""
             mv -f /tmp/fabupload {remote};
-            chown {user}:{user} {remote};
+            chown {user}:{group} {remote};
             chmod {mode} {remote}
         """,
             user = user,
