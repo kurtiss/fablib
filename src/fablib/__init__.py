@@ -302,13 +302,15 @@ class ProjectHelper(object):
             f.seek(0)
             self.upload(f.name, remote, user, mode)
 
-    def put(self, local, context = None, mode = 644, **kwargs):
+    def put(self, local, context=None, remote=None, mode=644, **kwargs):
         context = context or dict()
         updated_context = self.new(*(context.items() + kwargs.items()))
 
+        remote = remote or os.path.join("{release_path}", local)
+
         self.upload_rendered(
             self.project_path(local),
-            os.path.join("{release_path}", local),
+            remote,
             self.context.user,
             updated_context,
             mode = mode,
