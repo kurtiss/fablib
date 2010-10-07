@@ -16,7 +16,7 @@ import tempfile
 import time
 
 from contextlib import contextmanager
-from functools import partial, reduce
+from functools import partial
 from fabric.api import abort, cd, env, sudo, put, run
 from fabric.state import _AttributeDict
 
@@ -88,7 +88,7 @@ class ProjectHelper(object):
 
     def include_base_environment(self):
         github_account, application = self.github_path.split("/")
-        
+
         self.extend(
             ('github_account',      github_account),
             ('application',         application),
@@ -99,7 +99,7 @@ class ProjectHelper(object):
             ('key_filename',        partial(self.root_path, "home/{user}/.ssh/id_rsa")),
             ('path_prefix',         "/var/www"),
             ('path',                "{path_prefix}/{application}"),
-            ('origin_uri',          "git@github.com:{github_account}/{application}.git"),
+            ('origin_uri',          "git@github.com:{0}.git".format(self.github_path)),
             ('shared_path',         "{path}/shared"),
             ('releases_path',       "{path}/releases"),
             ('current_path',        "{path}/current"),
@@ -302,7 +302,7 @@ class ProjectHelper(object):
             f.seek(0)
             self.upload(f.name, remote, user, mode)
 
-    def put(self, local, context = None, **kwargs):
+    def put(self, local, context = None, mode = 644, **kwargs):
         context = context or dict()
         updated_context = self.new(*(context.items() + kwargs.items()))
 
@@ -310,7 +310,8 @@ class ProjectHelper(object):
             self.project_path(local),
             os.path.join("{release_path}", local),
             self.context.user,
-            updated_context
+            updated_context,
+            mode = mode,
         )
 
     def project_path(self, *paths):
@@ -361,7 +362,7 @@ class PythonProjectHelper(ProjectHelper):
 
         self.run_in_virtualenv("""
                 easy_install pip;
-                {pip} install -r {requirements_path};
+                {pip} install -i http://d.pypi.python.org/simple -r {requirements_path};
                 add2virtualenv {release_path}/src
             """)
 
