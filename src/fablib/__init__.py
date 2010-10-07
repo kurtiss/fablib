@@ -205,10 +205,6 @@ class ProjectHelper(object):
             for dir in [d.strip('/') for d in r][:-self.context.keep_releases]:
                 sudo("rm -rf {0}".format(dir))        
     
-    def install_packages(self):
-        if self.packages:
-            package_list = " ".join(self.packages)
-
     def run(self, s, **kwargs):
         return run(self._(s, **kwargs))
 
@@ -360,36 +356,24 @@ class PythonProjectHelper(ProjectHelper):
         super(PythonProjectHelper, self).install_packages()
         self.pip("install virtualenvwrapper")
 
-    def setup(self):
-        super(PythonProjectHelper, self).setup()
-        with self.virtualenvwrapper():
-            pass
-
     def clone(self):
         super(PythonProjectHelper, self).clone()
 
-        with self.virtualenvwrapper():
-            self.run("""
-                mkvirtualenv --no-site-packages {release_id};
-                workon {release_id};
+        self.run_in_virtualenv("""
                 easy_install pip;
                 {pip} install -r {requirements_path};
                 add2virtualenv {release_path}/src
             """)
 
-    @contextmanager
-    def virtualenvwrapper(self):
+    def run_in_virtualenv(self, command):
         self.run("""
-            pushd;
+            pushd . 1>/dev/null;
             export WORKON_HOME={releases_path};
             source virtualenvwrapper.sh;
+            mkvirtualenv --no-site-packages {release_id};
+            workon {release_id};
             cdvirtualenv
-        """)
-
-        try:
-            yield
-        finally:
-            self.run("""
-                deactivate;
-                popd
-            """)
+            %(command)s
+            deactivate;
+            popd
+        """ % dict(command=command))
