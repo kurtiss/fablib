@@ -296,9 +296,10 @@ class ProjectHelper(object):
         je = Environment(loader = FileSystemLoader(self._(os.path.dirname(local))))
         template = je.get_template(self._(os.path.basename(local)))
         result = template.render(context or dict())
-
         with tempfile.NamedTemporaryFile() as f:
             f.write(result)
+            if not result.endswith("\n"):
+                f.write("\n")
             f.seek(0)
             self.upload(f.name, remote, user, mode)
 
