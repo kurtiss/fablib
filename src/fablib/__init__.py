@@ -365,8 +365,14 @@ class PythonProjectHelper(ProjectHelper):
 
         self.run_in_virtualenv("""
                 easy_install pip;
-                {pip} install -i http://d.pypi.python.org/simple -r {requirements_path};
-                add2virtualenv {release_path}/src
+
+                if [ -e "{release_path}/bin/install" ];
+                then
+                    source {release_path}/bin/install
+                else
+                    {pip} install -i http://d.pypi.python.org/simple -r {requirements_path};    
+                    add2virtualenv {release_path}/src
+                fi;
             """)
 
     def run_in_virtualenv(self, command):
