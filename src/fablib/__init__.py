@@ -344,7 +344,11 @@ class PythonProjectHelper(ProjectHelper):
         super(PythonProjectHelper, self).include_base_environment()
 
         self.extend(
-            ('pip',     self.pip_cmd)
+            ('pip',             self.pip_cmd),
+            ('log_path_prefix', "/var/log"),
+            ('log_path',        "{log_path_prefix}/{application}"),
+            ('pid_path_prefix', "/var/run"),
+            ('pid_path',        "{pid_path_prefix}/{application}")
         )
     
     def include_deploy_environment(self):
@@ -353,6 +357,14 @@ class PythonProjectHelper(ProjectHelper):
             ('requirements_path', "{release_path}/etc/pip/requirements.txt")
         )
     
+    def prepare(self):
+        super(PythonProjectHelper, self).prepare()
+
+        self.mkdirs(
+            "{log_path}",
+            "{pid_path}"
+        )
+
     def pip(self, s, **kwargs):
         self.sudo("{{pip}} {0}".format(s), **kwargs)
 
@@ -364,16 +376,16 @@ class PythonProjectHelper(ProjectHelper):
         super(PythonProjectHelper, self).clone()
 
         self.run_in_virtualenv("""
-                easy_install pip;
+            easy_install pip;
 
-                if [ -e "{release_path}/bin/install" ];
-                then
-                    source {release_path}/bin/install
-                else
-                    {pip} install -i http://d.pypi.python.org/simple -r {requirements_path};    
-                    add2virtualenv {release_path}/src
-                fi;
-            """)
+            if [ -e "{release_path}/bin/install" ];
+            then
+                source {release_path}/bin/install
+            else
+                {pip} install -i http://d.pypi.python.org/simple -r {requirements_path};    
+                add2virtualenv {release_path}/src
+            fi;
+        """)
 
     def run_in_virtualenv(self, command):
         self.run("""
