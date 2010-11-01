@@ -31,18 +31,12 @@ def install(helper, scope, prefix = None):
 
     for name in names:
         scope["{0}{1}".format(prefix, name)] = getattr(helper, name)
+        
 
-
-class ProjectHelper(object):
-    def __init__(self, github_path = None, project_path = None, packages = None):
-        self.github_path = github_path
-        self._project_path = project_path
-        self.packages = set(["git-core"])
+class Helper(object):
+    def __init__(self):
         self._context = env
 
-        if packages:
-            self.packages.update(set(packages))
-            
     @property
     def context(self):
         return self._context
@@ -57,18 +51,14 @@ class ProjectHelper(object):
             return s.format(**params)
 
         return s
-    
+
     def new(self, *items, **kwargs):
         kwargs.setdefault('base', _AttributeDict())
         return self._extend(items, kwargs)
-    
+
     def extend(self, *items, **kwargs):
         kwargs['base'] = self.context
         self._context = self._extend(items, kwargs)
-        
-    def __setattribute__(self, name):
-        if name == "context":
-            raise 
 
     def _extend(self, items, kwargs):
         try:
@@ -85,6 +75,51 @@ class ProjectHelper(object):
                 setattr(base, key, self._(value))
 
         return base
+
+    def run(self, s, **kwargs):
+        return run(self._(s, **kwargs))
+
+    def sudo(self, s, **kwargs):
+        return sudo(self._(s, **kwargs), pty = True)
+    
+    def abort(self, s, **kwargs):
+        return abort(self._(s, **kwargs))
+
+    def upload(self, local, remote, user, mode = 644):
+        put(local, "/tmp/fabupload")
+        self.sudo("""
+            mv -f /tmp/fabupload {remote};
+            chown {user}:{group} {remote};
+            chmod {mode} {remote}
+        """,
+            user = user,
+            mode = mode,
+            remote = self._(remote)
+        )
+    
+    def upload_rendered(self, local, remote, user, context = None, mode = 644):
+        from jinja2 import Environment, FileSystemLoader
+        je = Environment(loader = FileSystemLoader(self._(os.path.dirname(local))))
+        template = je.get_template(self._(os.path.basename(local)))
+        result = template.render(context or dict())
+        with tempfile.NamedTemporaryFile() as f:
+            f.write(result)
+            if not result.endswith("\n"):
+                f.write("\n")
+            f.seek(0)
+            self.upload(f.name, remote, user, mode)              
+
+
+class ProjectHelper(Helper):
+    def __init__(self, github_path = None, project_path = None, packages = None):
+        self.github_path = github_path
+        self._project_path = project_path
+        self.packages = set(["git-core"])
+
+        if packages:
+            self.packages.update(set(packages))
+        
+        super(ProjectHelper, self).__init__()
 
     def include_base_environment(self):
         github_account, application = self.github_path.split("/")
@@ -205,12 +240,6 @@ class ProjectHelper(object):
             for dir in [d.strip('/') for d in r][:-self.context.keep_releases]:
                 sudo("rm -rf {0}".format(dir))        
     
-    def run(self, s, **kwargs):
-        return run(self._(s, **kwargs))
-
-    def sudo(self, s, **kwargs):
-        return sudo(self._(s, **kwargs), pty = True)
-
     def install_packages(self):
         self.sudo("apt-get install -y {packages}",
             packages = " ".join(self.packages)
@@ -278,30 +307,6 @@ class ProjectHelper(object):
 
             for info in layout:
                 self.upload(info.local, info.remote, user, info.mode)
-
-    def upload(self, local, remote, user, mode = 644):
-        put(local, "/tmp/fabupload")
-        self.sudo("""
-            mv -f /tmp/fabupload {remote};
-            chown {user}:{group} {remote};
-            chmod {mode} {remote}
-        """,
-            user = user,
-            mode = mode,
-            remote = self._(remote)
-        )
-        
-    def upload_rendered(self, local, remote, user, context = None, mode = 644):
-        from jinja2 import Environment, FileSystemLoader
-        je = Environment(loader = FileSystemLoader(self._(os.path.dirname(local))))
-        template = je.get_template(self._(os.path.basename(local)))
-        result = template.render(context or dict())
-        with tempfile.NamedTemporaryFile() as f:
-            f.write(result)
-            if not result.endswith("\n"):
-                f.write("\n")
-            f.seek(0)
-            self.upload(f.name, remote, user, mode)
 
     def put(self, local, context=None, remote=None, user=None, mode=644, **kwargs):
         context = context or dict()
