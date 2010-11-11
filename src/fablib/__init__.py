@@ -85,19 +85,20 @@ class Helper(object):
     def abort(self, s, **kwargs):
         return abort(self._(s, **kwargs))
 
-    def upload(self, local, remote, user, mode = 644):
+    def upload(self, local, remote, user, mode = 644, group = None):
         put(local, "/tmp/fabupload")
         self.sudo("""
             mv -f /tmp/fabupload {remote};
             chown {user}:{group} {remote};
             chmod {mode} {remote}
         """,
-            user = user,
-            mode = mode,
+            user = self._(user),
+            group = self._(group or user),
+            mode = self._(str(mode)),
             remote = self._(remote)
         )
     
-    def upload_rendered(self, local, remote, user, context = None, mode = 644):
+    def upload_rendered(self, local, remote, user, context = None, mode = 644, group = None):
         from jinja2 import Environment, FileSystemLoader
         je = Environment(loader = FileSystemLoader(self._(os.path.dirname(local))))
         template = je.get_template(self._(os.path.basename(local)))
@@ -107,7 +108,16 @@ class Helper(object):
             if not result.endswith("\n"):
                 f.write("\n")
             f.seek(0)
-            self.upload(f.name, remote, user, mode)              
+            self.upload(f.name, remote, user, mode = mode, group = group)
+    
+    def mkdirs(self, *paths):
+        for path in paths:
+            self.sudo("""
+                mkdir -p {path};
+                chown {user}:{group} {path}
+                """,
+                path = self._(path)
+            )
 
 
 class ProjectHelper(Helper):
@@ -262,15 +272,6 @@ class ProjectHelper(Helper):
             git submodule init;
             git submodule update;
         """)
-
-    def mkdirs(self, *paths):
-        for path in paths:
-            self.sudo("""
-                mkdir -p {path};
-                chown {user}:{group} {path}
-                """,
-                path = self._(path)
-            )
 
     def addusers(self, *users):
         for user in users:
