@@ -17,7 +17,7 @@ import time
 
 from contextlib import contextmanager
 from functools import partial
-from fabric.api import abort, cd, env, sudo, put, run
+from fabric.api import abort, cd, env, sudo, put, run, get, prompt
 from fabric.state import _AttributeDict
 
         
@@ -118,6 +118,12 @@ class Helper(object):
                 """,
                 path = self._(path)
             )
+    
+    def get(self, *args, **kwargs):
+        return get(*[self._(a) for a in args], **dict((self._(k), self._(v)) for (k,v) in kwargs))
+    
+    def prompt(self, text, key = None, default = '', validate = None):
+        return prompt(self._(text), self._(key), default = self._(default), validate = validate)
 
 
 class ProjectHelper(Helper):
