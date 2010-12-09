@@ -233,7 +233,7 @@ class ProjectHelper(Helper):
         self.deploy_cleanup()
 
     def deploy_update(self):
-        self.update()
+        self.update(self._("{deploy_ref}"))
         self.clone()
 
     def deploy_alter(self):
@@ -261,13 +261,18 @@ class ProjectHelper(Helper):
             packages = " ".join(self.packages)
         )
 
-    def update(self):
+    def update(self, ref = "master"):
         self.run("""
             cd {repository_path};
-            git pull origin master;
+            git fetch origin;
+            git checkout {ref};
+            git pull origin {ref};
+            git checkout master;
             git submodule init;
             git submodule update;
-        """)
+        """,
+            ref = ref
+        )
 
     def clone(self):
         # clone the ref to our new release path
@@ -363,8 +368,8 @@ class PythonProjectHelper(ProjectHelper):
             ('pid_path',        "{pid_path_prefix}/{application}")
         )
     
-    def include_deploy_environment(self):
-        super(PythonProjectHelper, self).include_deploy_environment()
+    def include_deploy_environment(self, *args, **kwargs):
+        super(PythonProjectHelper, self).include_deploy_environment(*args, **kwargs)
         self.extend(
             ('requirements_path', "{release_path}/etc/pip/requirements.txt")
         )
