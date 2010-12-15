@@ -88,6 +88,7 @@ class Helper(object):
     def upload(self, local, remote, user, mode = 644, group = None):
         put(local, "/tmp/fabupload")
         self.sudo("""
+            mkdir -p `dirname {remote}`;
             mv -f /tmp/fabupload {remote};
             chown {user}:{group} {remote};
             chmod {mode} {remote}
