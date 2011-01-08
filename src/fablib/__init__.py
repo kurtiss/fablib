@@ -106,7 +106,7 @@ class Helper(object):
         je = Environment(loader = FileSystemLoader(self._(os.path.dirname(path))))
         je.filters['json_encode'] = json.dumps
 
-        return je.get_template(self._(os.path.basename(local)))
+        return je.get_template(self._(os.path.basename(path)))
     
     def upload_rendered(self, local, remote, user, context = None, mode = 644, group = None):
         template = self._get_jinja_template(local)
