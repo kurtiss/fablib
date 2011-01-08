@@ -99,10 +99,17 @@ class Helper(object):
             remote = self._(remote)
         )
     
-    def upload_rendered(self, local, remote, user, context = None, mode = 644, group = None):
+    def _get_jinja_template(self, path):
         from jinja2 import Environment, FileSystemLoader
-        je = Environment(loader = FileSystemLoader(self._(os.path.dirname(local))))
-        template = je.get_template(self._(os.path.basename(local)))
+        import json
+
+        je = Environment(loader = FileSystemLoader(self._(os.path.dirname(path))))
+        je.filters['json_encode'] = json.dumps
+
+        return je.get_template(self._(os.path.basename(local)))
+    
+    def upload_rendered(self, local, remote, user, context = None, mode = 644, group = None):
+        template = self._get_jinja_template(local)
         result = template.render(context or dict())
         with tempfile.NamedTemporaryFile() as f:
             f.write(result)
