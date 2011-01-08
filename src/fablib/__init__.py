@@ -135,7 +135,8 @@ class Helper(object):
 
 
 class ProjectHelper(Helper):
-    def __init__(self, github_path = None, project_path = None, packages = None):
+    def __init__(self, github_path=None, project_path=None, packages=None, github_domain=None):
+        self.github_domain = github_domain or "github.com"
         self.github_path = github_path
         self._project_path = project_path
         self.packages = set(["git-core"])
@@ -158,7 +159,7 @@ class ProjectHelper(Helper):
             ('key_filename',        partial(self.root_path, "home/{user}/.ssh/id_rsa")),
             ('path_prefix',         "/var/www"),
             ('path',                "{path_prefix}/{application}"),
-            ('origin_uri',          "git@github.com:{0}.git".format(self.github_path)),
+            ('origin_uri',          "git@{0}:{1}.git".format(self.github_domain, self.github_path)),
             ('shared_path',         "{path}/shared"),
             ('releases_path',       "{path}/releases"),
             ('current_path',        "{path}/current"),
