@@ -117,7 +117,7 @@ class Helper(object):
                 f.write("\n")
             f.seek(0)
             self.upload(f.name, remote, user, mode = mode, group = group)
-    
+     
     def mkdirs(self, *paths):
         for path in paths:
             self.sudo("""
@@ -411,6 +411,10 @@ class PythonProjectHelper(ProjectHelper):
                 {pip} install -i http://d.pypi.python.org/simple -r {requirements_path};    
                 add2virtualenv {release_path}/src
             fi;
+
+            if [ -e "{release_path}/etc/pip/global_requirements.txt" ]; then
+                pip install -i http://d.pypi.python.org/simple -r {release_path}/etc/pip/global_requirements.txt
+            fi
         """)
 
     def run_in_virtualenv(self, command):
